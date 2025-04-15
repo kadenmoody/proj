@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minesweeper</title>
+    <link rel="stylesheet" href="css/scratchstyles.css">
+    <style>
+        /* Basic Styling */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #FAF0E6;
+            /* Linen (Off-white tan) */
+            margin: 0;
+            position: relative;
+            /* Needed for overlay positioning */
+        }
+
+        h1 {
+            color: #333;
+            /* Dark grey title */
+            margin-bottom: 10px;
+        }
+
+        /* Game Info Area */
+        #game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            /* More responsive width */
+            max-width: 400px;
+            /* Max width */
+            margin-bottom: 15px;
+            padding: 5px 10px;
+            background-color: #c0c0c0;
+            border: 2px solid #00008B;
+            /* Dark Blue */
+            border-radius: 5px;
+            gap: 10px;
+            box-sizing: border-box;
+        }
+
+        #mine-counter {
+            font-size: 1.1em;
+            /* Slightly smaller */
+            font-weight: bold;
+            color: #ff0000;
+            flex-shrink: 0;
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 5px;
+            /* Reduced gap */
+            flex-grow: 1;
+            justify-content: flex-end;
+        }
+
+        .control-button {
+            padding: 6px 8px;
+            /* Slightly smaller padding */
+            font-size: 0.8em;
+            /* Smaller font */
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px outset #c0c0c0;
+            background-color: #dcdcdc;
+            white-space: nowrap;
+            color: #333;
+        }
+
+        .control-button:active {
+            border-style: inset;
+        }
+
+        #flag-mode-button.active {
+            background-color: #a0a0a0;
+            border-style: inset;
+        }
+
+        /* Game Grid */
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(25px, 35px));
+            /* Responsive cells */
+            grid-template-rows: repeat(9, minmax(25px, 35px));
+            gap: 1px;
+            background-color: #7b7b7b;
+            border: 3px solid #00008B;
+            /* Dark Blue */
+            padding: 2px;
+            width: fit-content;
+            margin-bottom: 20px;
+            /* Add space below grid */
+        }
+
+        /* Individual Cells */
+        .cell {
+            /* width/height set by grid */
+            background-color: #bdbdbd;
+            border: 2px outset #d1d1d1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(0.8em, 3vw, 1.1em);
+            /* Responsive font size */
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            color: transparent;
+        }
+
+        .cell.revealed {
+            background-color: #e0e0e0;
+            border: 1px solid #9e9e9e;
+            cursor: default;
+            color: black;
+        }
+
+        .cell.flagged {
+            font-size: clamp(1em, 3.5vw, 1.2em);
+            /* Responsive flag size */
+            color: black;
+        }
+
+        .cell.mine-hit {
+            background-color: red;
+        }
+
+        /* Number Colors */
+        .cell[data-adjacent="1"] {
+            color: #0000ff;
+        }
+
+        /* Blue */
+        .cell[data-adjacent="2"] {
+            color: #008000;
+        }
+
+        /* Green */
+        .cell[data-adjacent="3"] {
+            color: #ff0000;
+        }
+
+        /* Red */
+        .cell[data-adjacent="4"] {
+            color: #000080;
+        }
+
+        /* Navy */
+        .cell[data-adjacent="5"] {
+            color: #800000;
+        }
+
+        /* Maroon */
+        .cell[data-adjacent="6"] {
+            color: #008080;
+        }
+
+        /* Teal */
+        .cell[data-adjacent="7"] {
+            color: #000000;
+        }
+
+        /* Black */
+        .cell[data-adjacent="8"] {
+            color: #808080;
+        }
+
+        /* Gray */
+
+        /* Overlay & Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            /* Semi-transparent black */
+            display: none;
+            /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            /* Ensure it's on top */
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            /* Show when active */
+        }
+
+        .modal-content {
+            background-color: #e0e0e0;
+            padding: 30px 40px;
+            border-radius: 10px;
+            text-align: center;
+            position: relative;
+            border: 3px solid #555;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            min-width: 250px;
+            /* Ensure minimum width */
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            /* Reduced margin */
+            font-size: 1.8em;
+        }
+
+        .modal-content p {
+            margin-bottom: 20px;
+            /* Reduced margin */
+            font-size: 1.1em;
+        }
+
+        .modal-content ul {
+            text-align: left;
+            margin-bottom: 25px;
+            padding-left: 20px;
+        }
+
+        .modal-content li {
+            margin-bottom: 8px;
+        }
+
+        /* Style for restart buttons inside modals */
+        .modal-content .restart-button-modal {
+            padding: 10px 20px;
+            /* Make modal buttons slightly larger */
+            font-size: 1em;
+            margin-top: 10px;
+            /* Add space above button */
+        }
+
+
+        .modal-close-button {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.8em;
+            cursor: pointer;
+            color: #555;
+        }
+
+        .modal-close-button:hover {
+            color: #000;
+        }
+
+        /* Specific Modal Styles */
+        #win-modal .modal-content {
+            background-color: #d4edda;
+            /* Light green */
+            border-color: #155724;
+            /* Dark green */
+        }
+
+        #win-modal h2 {
+            color: #155724;
+        }
+
+        #lose-modal .modal-content {
+            background-color: #f8d7da;
+            /* Light red */
+            border-color: #721c24;
+            /* Dark red */
+        }
+
+        #lose-modal h2 {
+            color: #721c24;
+        }
+
+        #instructions-modal .modal-content {
+            background-color: #e2e3e5;
+            /* Light grey */
+            border-color: #383d41;
+            max-width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+
+        #instructions-modal h2 {
+            color: #383d41;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Nav bar -->
+    <div class="navbar">
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="scratch.html">Climbing</a></li>
+        </ul>
+    </div>
+    <h1>Minesweeper</h1>
+
+    <div id="game-info">
+        <span id="mine-counter">Mines: 10</span>
+        <div class="game-controls">
+            <button id="instructions-button" class="control-button">How to Play</button>
+            <button id="flag-mode-button" class="control-button">Flag Mode: OFF</button>
+            <button id="start-button" class="control-button">Restart</button>
+        </div>
+    </div>
+
+    <div id="game-grid">
+    </div>
+
+    <div id="win-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>You Win! 🎉</h2>
+            <p>Congratulations, you cleared the field!</p>
+            <button class="control-button restart-button-modal">Play Again</button>
+        </div>
+    </div>
+
+    <div id="lose-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Game Over! 💥</h2>
+            <p>You hit a mine!</p>
+            <button class="control-button restart-button-modal">Try Again</button>
+        </div>
+    </div>
+
+    <div id="instructions-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-button" id="instructions-close-button">&times;</button>
+            <h2>How to Play Minesweeper</h2>
+            <ul>
+                <li>The goal is to reveal all squares that do NOT contain mines.</li>
+                <li>Click on a square to reveal it.</li>
+                <li>If you reveal a mine (💣), you lose!</li>
+                <li>If a revealed square shows a number, it indicates how many mines are adjacent (touching
+                    horizontally, vertically, or diagonally).</li>
+                <li>If a revealed square is blank, it means 0 mines are adjacent, and it will automatically reveal its
+                    neighbors.</li>
+                <li>**Flagging:** Suspect a square has a mine?
+                    <ul>
+                        <li>Right-click the square to place a flag (🚩).</li>
+                        <li>OR, click the "Flag Mode" button (it will say ON), then left-click the square.</li>
+                        <li>Right-click or left-click (in Flag Mode) again to remove the flag.</li>
+                    </ul>
+                </li>
+                <li>The "Mines" counter shows the total mines minus the number of flags you've placed.</li>
+                <li>You win when all non-mine squares are revealed!</li>
+            </ul>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const gridElement = document.getElementById('game-grid');
+            const mineCounterElement = document.getElementById('mine-counter');
+            const startButton = document.getElementById('start-button'); // Top bar restart
+            const flagModeButton = document.getElementById('flag-mode-button');
+            const instructionsButton = document.getElementById('instructions-button');
+            const winModal = document.getElementById('win-modal');
+            const loseModal = document.getElementById('lose-modal');
+            const instructionsModal = document.getElementById('instructions-modal');
+            const instructionsCloseButton = document.getElementById('instructions-close-button');
+            // Get references to the new buttons in modals (using class)
+            const modalRestartButtons = document.querySelectorAll('.restart-button-modal');
+
+
+            // --- Game Configuration ---
+            const GRID_SIZE = 9;
+            const NUM_MINES = 10;
+
+            // --- Game State ---
+            let board = [];
+            let mineLocations = [];
+            let minesRemaining = NUM_MINES;
+            let revealedCount = 0;
+            let isGameOver = false;
+            let firstClick = true;
+            let isFlagModeActive = false;
+
+            // --- Initialization ---
+            function startGame() {
+                // Reset state variables
+                isGameOver = false;
+                firstClick = true;
+                revealedCount = 0;
+                minesRemaining = NUM_MINES;
+                isFlagModeActive = false;
+                mineLocations = [];
+                board = [];
+                gridElement.innerHTML = '';
+                winModal.classList.remove('active'); // Hide modals
+                loseModal.classList.remove('active');
+                instructionsModal.classList.remove('active');
+                updateMineCounter();
+                updateFlagModeButton();
+
+                // Create board data structure
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    board[r] = [];
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        board[r][c] = {
+                            isMine: false,
+                            isRevealed: false,
+                            isFlagged: false,
+                            adjacentMines: 0,
+                            element: null
+                        };
+                    }
+                }
+                createVisualGrid();
+                // Ensure event listeners are attached (or re-attached)
+                attachAllListeners();
+            }
+
+            function createVisualGrid() {
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const cellElement = document.createElement('div');
+                        cellElement.classList.add('cell');
+                        cellElement.dataset.row = r;
+                        cellElement.dataset.col = c;
+                        // Listeners added in attachAllListeners now
+                        gridElement.appendChild(cellElement);
+                        board[r][c].element = cellElement;
+                    }
+                }
+            }
+
+            // --- Mine Placement (after first click) ---
+            function placeMines(firstClickRow, firstClickCol) {
+                let minesPlaced = 0;
+                mineLocations = [];
+                while (minesPlaced < NUM_MINES) {
+                    const r = Math.floor(Math.random() * GRID_SIZE);
+                    const c = Math.floor(Math.random() * GRID_SIZE);
+                    // Avoid placing on first click or where mine already exists
+                    if (!board[r][c].isMine && (r !== firstClickRow || c !== firstClickCol)) {
+                        board[r][c].isMine = true;
+                        mineLocations.push({ row: r, col: c });
+                        minesPlaced++;
+                    }
+                }
+            }
+
+            // --- Calculate Adjacent Mines ---
+            function calculateAdjacentMines() {
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (board[r][c].isMine) continue;
+                        let count = 0;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const nr = r + dr;
+                                const nc = c + dc;
+                                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && board[nr][nc].isMine) {
+                                    count++;
+                                }
+                            }
+                        }
+                        board[r][c].adjacentMines = count;
+                    }
+                }
+            }
+
+
+            // --- Event Handlers ---
+            function handleCellClick(event) {
+                if (isGameOver) return;
+
+                const cellElement = event.target;
+                // Ensure click is on a cell element itself
+                if (!cellElement.classList.contains('cell')) return;
+
+                const row = parseInt(cellElement.dataset.row);
+                const col = parseInt(cellElement.dataset.col);
+
+                if (isFlagModeActive) {
+                    toggleFlag(row, col);
+                    return;
+                }
+
+                const cellData = board[row][col];
+                if (cellData.isRevealed || cellData.isFlagged) return;
+
+                if (firstClick) {
+                    firstClick = false;
+                    placeMines(row, col);
+                    calculateAdjacentMines();
+                }
+
+                if (cellData.isMine) {
+                    gameOver(false, cellElement);
+                    return;
+                }
+
+                revealCell(row, col);
+                checkWinCondition();
+            }
+
+            function handleCellRightClick(event) {
+                event.preventDefault();
+                if (isGameOver) return;
+
+                const cellElement = event.target;
+                // Ensure right-click is on a cell element itself
+                if (!cellElement.classList.contains('cell')) return;
+
+                const row = parseInt(cellElement.dataset.row);
+                const col = parseInt(cellElement.dataset.col);
+                toggleFlag(row, col);
+            }
+
+            // --- Flagging Logic (Helper Function) ---
+            function toggleFlag(row, col) {
+                // Ensure row/col are valid numbers before proceeding
+                if (isNaN(row) || isNaN(col)) return;
+                const cellData = board[row][col];
+                const cellElement = cellData.element;
+                if (!cellData || cellData.isRevealed) return; // Check if cellData exists
+
+                cellData.isFlagged = !cellData.isFlagged;
+
+                if (cellData.isFlagged) {
+                    cellElement.classList.add('flagged');
+                    cellElement.textContent = '🚩';
+                    minesRemaining--;
+                } else {
+                    cellElement.classList.remove('flagged');
+                    cellElement.textContent = '';
+                    minesRemaining++;
+                }
+                updateMineCounter();
+            }
+
+
+            // --- Revealing Logic ---
+            function revealCell(row, col) {
+                // Ensure row/col are valid numbers before proceeding
+                if (isNaN(row) || isNaN(col)) return;
+                const cellData = board[row][col];
+                // Check bounds and if cellData exists
+                if (!cellData || cellData.isRevealed || cellData.isFlagged) {
+                    return;
+                }
+
+                cellData.isRevealed = true;
+                cellData.element.classList.add('revealed');
+                revealedCount++;
+
+                if (cellData.adjacentMines > 0) {
+                    cellData.element.textContent = cellData.adjacentMines;
+                    cellData.element.dataset.adjacent = cellData.adjacentMines;
+                } else {
+                    cellData.element.textContent = '';
+                    // Use setTimeout for flood fill to allow UI to update slightly, prevent potential stack overflow on huge clears
+                    setTimeout(() => {
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                const nr = row + dr;
+                                const nc = col + dc;
+                                // Check bounds inside loop as well
+                                if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+                                    // Check neighbor state before revealing (important!)
+                                    if (board[nr][nc] && !board[nr][nc].isRevealed && !board[nr][nc].isFlagged) {
+                                        revealCell(nr, nc);
+                                    }
+                                }
+                            }
+                        }
+                    }, 10); // Small delay
+                }
+            }
+
+            // --- Game State Checks ---
+            function checkWinCondition() {
+                const totalSafeCells = GRID_SIZE * GRID_SIZE - NUM_MINES;
+                if (revealedCount === totalSafeCells && !isGameOver) { // Ensure game isn't already marked over
+                    gameOver(true);
+                }
+            }
+
+            // --- Modified Game Over to show modals ---
+            function gameOver(isWin, clickedMineElement = null) {
+                if (isGameOver) return; // Prevent running multiple times
+                isGameOver = true;
+                isFlagModeActive = false;
+                updateFlagModeButton();
+
+                // Stop further interaction with cells immediately
+                gridElement.removeEventListener('click', handleCellClick);
+                gridElement.removeEventListener('contextmenu', handleCellRightClick);
+
+
+                // Reveal all mines first
+                mineLocations.forEach(loc => {
+                    const cell = board[loc.row][loc.col];
+                    if (cell && !cell.isRevealed && !cell.isFlagged) { // Add check for cell existence
+                        cell.element.classList.add('revealed');
+                        cell.element.textContent = '💣';
+                    }
+                    // Highlight the clicked mine if lost
+                    if (!isWin && cell && cell.element === clickedMineElement) {
+                        cell.element.classList.add('mine-hit');
+                    }
+                    // Mark incorrectly flagged cells when lost (optional)
+                    // if (!isWin && cell && cell.isFlagged && !cell.isMine) {
+                    //    cell.element.textContent = '❌';
+                    // }
+                });
+
+                // Display appropriate modal
+                if (isWin) {
+                    // Auto-flag remaining mines on win
+                    mineLocations.forEach(loc => {
+                        const cell = board[loc.row][loc.col];
+                        if (cell && !cell.isFlagged && !cell.isRevealed) {
+                            cell.element.classList.add('flagged');
+                            cell.element.textContent = '🚩';
+                        }
+                    });
+                    minesRemaining = 0;
+                    updateMineCounter();
+                    winModal.classList.add('active'); // Show win modal
+                } else {
+                    loseModal.classList.add('active'); // Show lose modal
+                }
+            }
+
+            // --- UI Updates ---
+            function updateMineCounter() {
+                mineCounterElement.textContent = `Mines: ${minesRemaining}`;
+            }
+
+            function toggleFlagMode() {
+                if (isGameOver) return;
+                isFlagModeActive = !isFlagModeActive;
+                updateFlagModeButton();
+            }
+
+            function updateFlagModeButton() {
+                if (isFlagModeActive) {
+                    flagModeButton.textContent = 'Flag Mode: ON';
+                    flagModeButton.classList.add('active');
+                } else {
+                    flagModeButton.textContent = 'Flag Mode: OFF';
+                    flagModeButton.classList.remove('active');
+                }
+            }
+
+            // --- Instructions Modal Logic ---
+            function showInstructions() {
+                instructionsModal.classList.add('active');
+            }
+            function hideInstructions() {
+                instructionsModal.classList.remove('active');
+            }
+
+
+            // --- Event Listeners Setup ---
+            // Function to attach all necessary event listeners for the grid
+            function attachGridListeners() {
+                // Remove old grid listeners before adding new ones (important for restart)
+                gridElement.removeEventListener('click', handleCellClick);
+                gridElement.removeEventListener('contextmenu', handleCellRightClick);
+
+                // Add grid listeners (delegated)
+                gridElement.addEventListener('click', handleCellClick);
+                gridElement.addEventListener('contextmenu', handleCellRightClick);
+            }
+
+            // Add listeners for static controls ONCE on initial load
+            startButton.addEventListener('click', startGame);
+            flagModeButton.addEventListener('click', toggleFlagMode);
+            instructionsButton.addEventListener('click', showInstructions);
+            instructionsCloseButton.addEventListener('click', hideInstructions);
+            // Add listeners for the restart buttons within the modals
+            modalRestartButtons.forEach(button => {
+                button.addEventListener('click', startGame); // Both modal buttons restart the game
+            });
+            // Optional: Close instructions modal if clicking overlay background
+            instructionsModal.addEventListener('click', (event) => {
+                if (event.target === instructionsModal) { // Clicked on overlay, not content
+                    hideInstructions();
+                }
+            });
+
+            // Attach grid listeners initially and within startGame
+            function attachAllListeners() {
+                attachGridListeners();
+                // Add other non-grid listeners here if they needed re-attaching,
+                // but the static button ones are usually fine being added once.
+            }
+
+
+            // --- Initial Game Start ---
+            startGame(); // Start the game immediately on load
+        });
+    </script>
+</body>
+
+</html>
